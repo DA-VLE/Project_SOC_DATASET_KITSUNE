@@ -1,0 +1,15 @@
+{
+  "created_at": "2026-01-03T01:20:31.227661Z",
+  "input_csv": "/opt/project/data/global_dataset.csv",
+  "sample_frac": 0.01,
+  "limit_rows": 0,
+  "num_trees": 40,
+  "max_depth": 10,
+  "seed": 42,
+  "metrics": {
+    "accuracy": 0.993366738248628,
+    "f1": 0.9927952344839613
+  },
+  "n_features": 115,
+  "spark_version": "3.3.0"
+}

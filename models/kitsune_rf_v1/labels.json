@@ -1,0 +1,14 @@
+{
+  "labels": [
+    "benign",
+    "SSDP_Flood",
+    "MitM",
+    "Active_Wiretap",
+    "Mirai",
+    "Fuzzing",
+    "Video_Injection",
+    "SSL_Renegotiation",
+    "OS_Scan",
+    "SYN_DoS"
+  ]
+}

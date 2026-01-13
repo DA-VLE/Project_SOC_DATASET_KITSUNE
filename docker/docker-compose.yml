@@ -1,0 +1,155 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [soc-network]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on: [zookeeper]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks: [soc-network]
+
+  producer:
+    build:
+      context: .
+      dockerfile: Dockerfile.producer
+    container_name: producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    working_dir: /opt/project
+    environment:
+      BOOTSTRAP: "kafka:29092"
+      TOPIC: "kitsune"
+      CSV_PATH: "/opt/project/data/global_dataset.csv"
+      CHUNK: "5000"
+      SLEEP_SEC: "0"
+    volumes:
+      - ./code:/opt/project
+      - ./data:/opt/project/data:ro
+    networks: [soc-network]
+    command: ["bash", "-lc", "python /opt/project/wait_for_kafka.py && python /opt/project/producer_csv_to_kafka.py"]
+
+
+
+
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    image: project_soc_kitsune-spark-master:latest
+    container_name: spark-master
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+    ports:
+      - "127.0.0.1:18080:8080"     # Spark Master UI (host)
+      - "127.0.0.1:17077:7077"     # (optionnel) accès host
+    command: ["/spark/bin/spark-class", "org.apache.spark.deploy.master.Master",
+              "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
+    networks: [soc-network]
+    volumes:
+      - ./code:/opt/project/code
+      - ./data:/opt/project/data
+      - ./models:/opt/project/models
+      - ./checkpoints:/opt/project/checkpoints
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    image: project_soc_kitsune-spark-worker:latest
+    container_name: spark-worker
+    depends_on: [spark-master]
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    ports:
+      - "127.0.0.1:18081:8081"   
+    command: ["/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker",
+              "spark://spark-master:7077", "--webui-port", "8081"]
+    networks: [soc-network]
+    volumes:
+      - ./code:/opt/project/code
+      - ./data:/opt/project/data
+      - ./models:/opt/project/models
+      - ./checkpoints:/opt/project/checkpoints
+
+
+  #influxdb:
+   # image: influxdb:1.8
+    #container_name: influxdb
+    #environment:
+     # - INFLUXDB_DB=soc_db
+     # - INFLUXDB_ADMIN_USER=admin
+     # - INFLUXDB_ADMIN_PASSWORD=admin
+    #networks: [soc-network]
+    # (optionnel) si tu veux accéder depuis Windows :
+    # ports:
+    #   - "127.0.0.1:18086:8086"
+
+  #grafana:
+    #image: grafana/grafana:latest
+    #container_name: grafana
+    #depends_on: [influxdb]
+    #ports:
+    #  - "127.0.0.1:13000:3000"     # évite 3000 si jamais conflict
+    #networks: [soc-network]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "127.0.0.1:19200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks: [soc-network]
+  
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.2
+    container_name: logstash
+    depends_on: [kafka, elasticsearch]
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    networks: [soc-network]
+
+
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.2
+    container_name: kibana
+    depends_on: [elasticsearch]
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "127.0.0.1:15601:5601"
+    networks: [soc-network]
+
+volumes:
+  esdata:
+
+networks:
+  soc-network:
+    driver: bridge

@@ -1,0 +1,34 @@
+# Fichiers volumineux
+data/*.csv
+kitsune/**/*.pcap
+kitsune/**/*.pcapng
+
+# Fichiers générés
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Checkpoints et artifacts volumineux
+checkpoints/
+artifacts/**/*.joblib
+
+# Fichiers temporaires
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

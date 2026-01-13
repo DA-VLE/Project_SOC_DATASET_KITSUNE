@@ -1,0 +1,30 @@
+ARG BASE_IMAGE=bde2020/spark-master:3.3.0-hadoop3.3
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Alpine packages (précompilés) -> pas de compilation pip
+RUN apk add --no-cache \
+    bash wget \
+    python3 py3-pip \
+    py3-numpy
+
+# S'assurer que "python" existe
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
+# Sanity check
+RUN python3 -c "import numpy as np; print('numpy=', np.__version__)"
+
+# (Optionnel) Kafka jars si tu veux les embarquer (tu peux aussi rester avec --packages)
+RUN wget -q -O /spark/jars/spark-sql-kafka-0-10_2.12-3.3.0.jar \
+      https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.3.0/spark-sql-kafka-0-10_2.12-3.3.0.jar \
+ && wget -q -O /spark/jars/spark-token-provider-kafka-0-10_2.12-3.3.0.jar \
+      https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.3.0/spark-token-provider-kafka-0-10_2.12-3.3.0.jar \
+ && wget -q -O /spark/jars/kafka-clients-2.8.1.jar \
+      https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/2.8.1/kafka-clients-2.8.1.jar \
+ && wget -q -O /spark/jars/commons-pool2-2.11.1.jar \
+      https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar
+
+ENV PYSPARK_PYTHON=python3
+ENV PYSPARK_DRIVER_PYTHON=python3
+ENV PATH="/spark/bin:${PATH}"
