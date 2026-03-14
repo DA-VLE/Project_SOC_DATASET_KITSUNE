@@ -1,3 +1,1 @@
-[![Aperçu du rapport](./images/apercu-rapport.png)]
-
-📄 [Consulter le rapport complet du projet](./docs/rapport-projet-soc.pdf)
+📄 [Consulter le rapport complet du projet](Rapport_Project_SOC_LE.pdf)
